@@ -1,116 +1,28 @@
-**FREE
-ctl-opt dftactgrp(*NO) actgrp(*NEW) option(*SRCSTMT:*NODEBUGIO)
-        main(Main);
+FITEMS     IF   E           K DISK
+TRNREPTF  O    F     132    PRINTER OFLIND(*IN99)
 
- /copy QRPGLESRC,TRNREPT_H  // Prototypes included below
+D HDS1          S             50A
 
-// ---------------------------
-// FILE SPECS
-// ---------------------------
-fTRANSDET  IF   E           K DISK
-fTRLNIDX   IF   E           K DISK           // Logical file
-fTRNREPTF  O    E             PRINTER        // Printer file
-fTRNREPTD  CF   E             WORKSTN        // Display file
+ /FREE
+   *INLR = *OFF;
 
-// ---------------------------
-// GLOBAL VARIABLES
-// ---------------------------
-dcl-s ItemID     packed(5:0);
-dcl-s LocID      char(5);
-dcl-s Qty        packed(9:0);
-dcl-s TrnType    char(1);
-dcl-s TrnNo      packed(7:0);
-dcl-s ErrorFlag  ind;
+   HDS1 = 'ITEM MASTER LIST';
+   EXCPT HDR1;
 
-// ---------------------------
-// MAIN PROCEDURE
-// ---------------------------
-dcl-proc Main;
-   monitor;
-      exsr $Initialize;
+   READ ITEMS;
 
-      dou *in03;
-         exfmt SELSCRN;
+   DOU %EOF(ITEMS);
 
-         if *in05;
-            exsr $StartCommitment;
-            exsr $GenerateReport;
-            exsr $EndCommitment;
-         endif;
+      FLD1 = %CHAR(ITEMID);
+      FLD2 = ITEMNAME;
+      FLD3 = UOM;
+      FLD4 = %CHAR(PRICE);
 
-      enddo;
+      EXCPT DTL1;
 
-   on-error;
-      exsr $RollbackCommitment;
-   endmon;
+      READ ITEMS;
+   ENDDO;
 
-   *inlr = *on;
-end-proc;
-
-// ---------------------------
-// SUBROUTINE: Initialize
-// ---------------------------
-begsr $Initialize;
-   ItemID = 0;
-   LocID = *blanks;
-   Qty = 0;
-   ErrorFlag = *off;
-endsr;
-
-// ---------------------------
-// SUBROUTINE: Begin Commitment Control
-// ---------------------------
-begsr $StartCommitment;
-   exec sql set option commit = *CS;   // Change to native mode below
-   commit;                             // Start a new transaction block
-endsr;
-
-// ---------------------------
-// SUBROUTINE: Rollback
-// ---------------------------
-begsr $RollbackCommitment;
-   rollback;
-endsr;
-
-// ---------------------------
-// SUBROUTINE: End Commitment Control
-// ---------------------------
-begsr $EndCommitment;
-   commit;
-endsr;
-
-// ---------------------------
-// SUBROUTINE: Generate the report
-// ---------------------------
-begsr $GenerateReport;
-
-   // Print header
-   HDTXT = 'DETAILED TRANSACTION REPORT';
-   except HDR1;
-
-   // Use Logical File for filtering
-   setll ItemID TRLNIDX;
-   reade ItemID TRLNIDX;
-
-   dow not %eof(TRLNIDX);
-
-      // Load detail record
-      Item     = %char(ITEMID);
-      Loc      = LOCID;
-      Qty      = QTY;
-      TrnType  = TRNTYPE;
-      TrnNo    = TRNID;
-
-      except DETAIL;
-
-      reade ItemID TRLNIDX;
-
-   enddo;
-
-endsr;
-
-// ---------------------------
-// Prototype Copy Member
-// ---------------------------
-**END-FREE
-
+   *INLR = *ON;
+   RETURN;
+ /END-FREE
